@@ -1,0 +1,24 @@
+{
+	"name": "graphics",
+	"version": "0.0.0",
+	"description": "Graphics",
+	"main": "server.js",
+	"author": {
+		"name": ""
+	},
+	"scripts": {
+		"build": "node preprocess.js && tsc --build",
+		"clean": "tsc --build --clean"
+	},
+	"devDependencies": {
+		"@types/express": "^4.17.8",
+		"@types/node": "^8.0.14",
+		"@types/jquery": "^3.5.2",
+		"typescript": "^3.2.2",
+		"c-preprocessor": "^0.2.13",
+		"glob": "^7.1.6"
+	},
+	"dependencies": {
+		"express": "^4.17.1"
+	}
+}
