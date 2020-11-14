@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"target": "es6",
+		"lib": [ "es6", "DOM" ],
+		"sourceMap": true,
+		"typeRoots": [ "node_modules/@types" ],
+		"noImplicitAny": true,
+		"moduleResolution": "node"
+	},
+	"include": [
+		"public/*.ts"
+	]
+}
