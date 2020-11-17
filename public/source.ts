@@ -108,8 +108,7 @@ const animate: FrameRequestCallback = (time) => {
     }
     {
         const applyMovement = (proportion: number) => {
-            const facing = new THREE.Vector3();
-            camera.getWorldDirection(facing);
+            const facing = new THREE.Vector3(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
             camera.position.add(facing.applyQuaternion(directions[proportion]).multiplyScalar(elapsed));
         };
         if (keysActive[KeysDown.FORWARD]) {
