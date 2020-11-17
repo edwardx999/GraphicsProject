@@ -141,7 +141,7 @@ requestAnimationFrame(animate);
 
 {
     let keyTime = 0;
-    const keysDownTime: Record<KeysDown, number | false> = [0, 0, 0, 0, 0, 0];
+    const keysDownTime: Record<KeysDown, number | false> = [false, false, false, false, false, false];
     const testPressed = (key: KeysDown, antiKey: KeysDown) => {
         return keysDownTime[key] && (!keysDownTime[antiKey] || (keysDownTime[key] > keysDownTime[antiKey]));
     };
