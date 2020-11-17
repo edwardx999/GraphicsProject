@@ -1,5 +1,4 @@
 import * as THREE from "./lib/Three.js"
-import { BooleanKeyframeTrack, CameraHelper, RGBA_PVRTC_2BPPV1_Format, SpotLight } from "./lib/Three.js";
 
 let camera: THREE.PerspectiveCamera;
 let light: THREE.SpotLight;
@@ -9,8 +8,16 @@ let geometry: THREE.Geometry;
 let material: THREE.Material;
 let cube: THREE.Mesh;
 let cube2: THREE.Mesh;
-let direction = new THREE.Vector3(0, 0, 0);
-let theta = 0
+const enum KeysDown {
+    FORWARD,
+    BACKWARD,
+    LEFT,
+    RIGHT,
+    CCW,
+    CW
+};
+const keysDownTime: Record<KeysDown, number | false> = [0, 0, 0, 0, 0, 0];
+const keysActive: Record<KeysDown, boolean> = [false, false, false, false, false, false];
 
 
 function init() {
@@ -21,6 +28,7 @@ function init() {
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xcce0ff);
+    scene.add(camera);
 
     geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
     material = new THREE.MeshPhongMaterial();
@@ -42,7 +50,7 @@ function init() {
     light.penumbra = 0.05;
     light.distance = 50;
     light.decay = 0.5;
-    light.position.set(0, 2, 5);
+    light.position.set(0, 1, 0);
     light.target = cube;
     light.castShadow = true;
     light.shadow.mapSize.width = 1024;
@@ -53,7 +61,7 @@ function init() {
     light.shadow.camera.fov = 30;
 
     light.shadow.camera.far = 1000;
-    scene.add(light);
+    camera.add(light);
 
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xABEFCD });
     let ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(20000, 20000), groundMaterial);
@@ -69,6 +77,20 @@ function init() {
 }
 
 let lastTime: number;
+const yAxisVector = new THREE.Vector3(0, 1, 0);
+const directions = (() => {
+    const ret: THREE.Quaternion[] = [];
+    const scale = new THREE.Quaternion(0, 0, 0, 0.05);
+    for (let i = 0; i < 8; ++i) {
+        ret.push(new THREE.Quaternion().setFromAxisAngle(yAxisVector, i * Math.PI / 4).multiply(scale));
+    }
+    return ret;
+})();
+
+const testPressed = (key: KeysDown, antiKey: KeysDown) => {
+    return keysDownTime[key] && (!keysDownTime[antiKey] || (keysDownTime[key] > keysDownTime[antiKey]));
+};
+
 const animate: FrameRequestCallback = (time) => {
     if (lastTime === undefined) {
         lastTime = time;
@@ -78,62 +100,126 @@ const animate: FrameRequestCallback = (time) => {
     requestAnimationFrame(animate);
     cube.rotation.x += 0.001 * elapsed;
     cube.rotation.y += 0.002 * elapsed;
-    camera.position.addScaledVector(direction, elapsed);
-    camera.rotation.y += theta * elapsed;
-    light.position.copy(camera.position);
-    light.position.y += 1;
+    if (keysActive[KeysDown.CCW]) {
+        camera.rotation.y += 0.001 * elapsed;
+    }
+    else if (keysActive[KeysDown.CW]) {
+        camera.rotation.y += -0.001 * elapsed;
+    }
+    {
+        const applyMovement = (proportion: number) => {
+            const facing = new THREE.Vector3();
+            camera.getWorldDirection(facing);
+            camera.position.add(facing.applyQuaternion(directions[proportion]).multiplyScalar(elapsed));
+        };
+        if (keysActive[KeysDown.FORWARD]) {
+            if (keysActive[KeysDown.LEFT]) {
+                applyMovement(1);
+            }
+            else if (keysActive[KeysDown.RIGHT]) {
+                applyMovement(7);
+            }
+            else {
+                applyMovement(0);
+            }
+        }
+        else if (keysActive[KeysDown.BACKWARD]) {
+            if (keysActive[KeysDown.LEFT]) {
+                applyMovement(3);
+            }
+            else if (keysActive[KeysDown.RIGHT]) {
+                applyMovement(5);
+            }
+            else {
+                applyMovement(4);
+            }
+        }
+        else if (keysActive[KeysDown.LEFT]) {
+            applyMovement(2);
+        }
+        else if (keysActive[KeysDown.RIGHT]) {
+            applyMovement(6);
+        }
+    }
     renderer.render(scene, camera);
 }
 
 init();
 requestAnimationFrame(animate);
 
+let keyTime = 0;
+const setKeyActive = (key: KeysDown, antiKey: KeysDown) => {
+    const active = (keysActive[key] = testPressed(key, antiKey));
+    if (!active) {
+        keysActive[antiKey] = testPressed(antiKey, key);
+    }
+};
+const setKeyDown = (key: KeysDown, antiKey: KeysDown) => {
+    const wasKeyDown = keysDownTime[key];
+    if (!wasKeyDown) {
+        keysDownTime[key] = ++keyTime;
+        setKeyActive(key, antiKey);
+    }
+};
 window.addEventListener("keydown", (ev) => {
     const facing = new THREE.Vector3()
-    camera.getWorldDirection(facing)
+    camera.getWorldDirection(facing);
     switch (ev.key) {
         case "w":
-            direction.copy(facing).multiplyScalar(0.005);
+            setKeyDown(KeysDown.FORWARD, KeysDown.BACKWARD);
             break;
         case "s":
-            direction.copy(facing).multiplyScalar(-0.005);
+            setKeyDown(KeysDown.BACKWARD, KeysDown.FORWARD);
             break;
         case "a":
-            direction.set(-facing.z, 0, facing.x).multiplyScalar(-0.005);
+            setKeyDown(KeysDown.LEFT, KeysDown.RIGHT);
             break;
         case "d":
-            direction.set(-facing.z, 0, facing.x).multiplyScalar(0.005);
+            setKeyDown(KeysDown.RIGHT, KeysDown.LEFT);
             break;
         case "q":
-            theta = 0.001;
+            setKeyDown(KeysDown.CCW, KeysDown.CW);
             break;
         case "e":
-            theta = -0.001;
+            setKeyDown(KeysDown.CW, KeysDown.CCW);
             break;
         default:
             return;
     }
 });
 
+const setKeyUp = (key: KeysDown, antiKey: KeysDown) => {
+    keysDownTime[key] = false;
+    setKeyActive(key, antiKey);
+};
 window.addEventListener("keyup", (ev) => {
     switch (ev.key) {
         case "w":
+            setKeyUp(KeysDown.FORWARD, KeysDown.BACKWARD);
+            break;
         case "s":
+            setKeyUp(KeysDown.BACKWARD, KeysDown.FORWARD);
+            break;
         case "a":
+            setKeyUp(KeysDown.LEFT, KeysDown.RIGHT);
+            break;
         case "d":
-            direction.set(0, 0, 0);
+            setKeyUp(KeysDown.RIGHT, KeysDown.LEFT);
             break;
         case "q":
+            setKeyUp(KeysDown.CCW, KeysDown.CW);
+            break;
         case "e":
-            theta = 0
-            
+            setKeyUp(KeysDown.CW, KeysDown.CCW);
+            break;
+
     }
 })
 
 const setFov = (newFov: number) => {
     camera.fov = newFov;
     camera.updateProjectionMatrix();
-} 
+}
 
 document.getElementById("fov").addEventListener("change", (val) => {
     setFov((val.target as HTMLInputElement).valueAsNumber);
