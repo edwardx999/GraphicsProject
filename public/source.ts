@@ -224,3 +224,9 @@ const setFov = (newFov: number) => {
 document.getElementById("fov").addEventListener("change", (val) => {
     setFov((val.target as HTMLInputElement).valueAsNumber);
 });
+
+window.addEventListener("resize", ev => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+});
