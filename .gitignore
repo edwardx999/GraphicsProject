@@ -2,4 +2,4 @@ node_modules
 public/*.js
 public/lib
 public/*.map
-package_lock.json
+package-lock.json
