@@ -150,6 +150,9 @@ requestAnimationFrame(animate);
         if (!active) {
             keysActive[antiKey] = testPressed(antiKey, key);
         }
+        else {
+            keysActive[antiKey] = false;
+        }
     };
     const setKeyDown = (key: KeysDown, antiKey: KeysDown) => {
         const wasKeyDown = keysDownTime[key];
@@ -187,7 +190,8 @@ requestAnimationFrame(animate);
 
     const setKeyUp = (key: KeysDown, antiKey: KeysDown) => {
         keysDownTime[key] = false;
-        setKeyActive(key, antiKey);
+        keysActive[key] = false;
+        keysActive[antiKey] = testPressed(antiKey, key);
     };
     window.addEventListener("keyup", (ev) => {
         switch (ev.key) {
@@ -223,7 +227,7 @@ document.getElementById("fov").addEventListener("change", (val) => {
     setFov((val.target as HTMLInputElement).valueAsNumber);
 });
 
-window.addEventListener("resize", ev => {
+window.addEventListener("resize", () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
