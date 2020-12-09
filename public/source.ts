@@ -2,6 +2,7 @@ import * as THREE from "./lib/Three.js"
 
 let camera: THREE.PerspectiveCamera;
 let light: THREE.SpotLight;
+let lightTarget: THREE.Object3D;
 let scene: THREE.Scene;
 let renderer: THREE.WebGLRenderer;
 let geometry: THREE.Geometry;
@@ -48,8 +49,7 @@ function init() {
     light.penumbra = 0.05;
     light.distance = 50;
     light.decay = 0.5;
-    light.position.set(0, 1, 0);
-    light.target = cube;
+    light.angle = Math.PI / 5;
     light.castShadow = true;
     light.shadow.mapSize.width = 1024;
     light.shadow.mapSize.height = 1024;
@@ -58,7 +58,14 @@ function init() {
     light.shadow.camera.far = 400;
     light.shadow.camera.fov = 30;
 
-    light.shadow.camera.far = 1000;
+    {
+        const inFrontOfCamera = new THREE.Object3D();
+        inFrontOfCamera.position.z = -5;
+        camera.add(inFrontOfCamera);
+        light.target = inFrontOfCamera;
+        lightTarget = inFrontOfCamera;
+    }
+
     camera.add(light);
 
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xABEFCD });
@@ -67,6 +74,11 @@ function init() {
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    {
+        const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.1);
+        scene.add(ambientLight);
+    }
 
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas") as HTMLCanvasElement });
     renderer.shadowMap.enabled = true;
@@ -132,6 +144,12 @@ const animate: FrameRequestCallback = (time) => {
         else if (keysActive[KeysDown.RIGHT]) {
             applyMovement(6);
         }
+    }
+    {
+        lightTarget.position.y = -0.5 + Math.sin(time / 1000) / 10;
+        lightTarget.position.x = Math.sin(time / 823) / 10;
+        light.position.y = -0.5 + Math.sin(time / 777) / 80;
+        light.position.x = Math.sin(time / 931) / 80;
     }
     renderer.render(scene, camera);
 }
