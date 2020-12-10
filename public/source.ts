@@ -1,14 +1,28 @@
-import * as THREE from "./lib/Three.js"
-
+import * as THREE from "./lib/Three.js";
+import { FBXLoader } from "./lib/loaders/FBXLoader.js";
+import { TGALoader } from "./lib/loaders/TGALoader.js";
+import * as Doppler from "./doppler_shader.js";
+import { Matrix4, Vector3 } from "./lib/Three.js";
 let camera: THREE.PerspectiveCamera;
 let light: THREE.SpotLight;
 let lightTarget: THREE.Object3D;
 let scene: THREE.Scene;
+const pickingScene: THREE.Scene = new THREE.Scene();
+pickingScene.background = new THREE.Color(0);
 let renderer: THREE.WebGLRenderer;
 let geometry: THREE.Geometry;
 let material: THREE.Material;
+let customObject: THREE.Mesh;
+interface Object {
+    object: THREE.Mesh;
+    pickingObject: THREE.Mesh;
+    v: number;
+    omega: number;
+
+};
+const objects: THREE.Mesh[] = [];
 let cube: THREE.Mesh;
-let cube2: THREE.Mesh;
+
 const enum KeysDown {
     FORWARD,
     BACKWARD,
@@ -18,6 +32,15 @@ const enum KeysDown {
     CW
 };
 const keysActive: Record<KeysDown, boolean> = [false, false, false, false, false, false];
+
+function createObject(geometry: THREE.Geometry, material: THREE.Material) {
+    const realObject = new THREE.Mesh(geometry, material);
+    const pickingMaterial = new THREE.MeshPhongMaterial({
+        color: objects.length + 1
+    });
+    const pickingObject = new THREE.Mesh(geometry, pickingMaterial);
+
+}
 
 function init() {
 
@@ -29,19 +52,21 @@ function init() {
     scene.background = new THREE.Color(0xcce0ff);
     scene.add(camera);
 
+    const textureLoader = new THREE.TextureLoader();
+    const bird = textureLoader.load("./bird.png")
     geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-    material = new THREE.MeshPhongMaterial();
+    material = new THREE.MeshPhongMaterial({ map: bird });
 
     cube = new THREE.Mesh(geometry, material);
     cube.castShadow = true;
     cube.receiveShadow = true;
     scene.add(cube);
 
-    cube2 = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10), material);
-    cube2.castShadow = true;
-    cube2.receiveShadow = true;
-    cube2.position.z = -1;
-    scene.add(cube2);
+    let cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10), new THREE.MeshPhongMaterial({ color: 0xABCDEF, bumpMap: bird }));
+    cone.castShadow = true;
+    cone.receiveShadow = true;
+    cone.position.z = -1;
+    scene.add(cone);
 
     light = new THREE.SpotLight(0xFFFFFF, 1);
 
@@ -57,7 +82,25 @@ function init() {
     light.shadow.camera.near = 0.5;
     light.shadow.camera.far = 400;
     light.shadow.camera.fov = 30;
-
+    {
+        const uniforms: Doppler.UntexturedUniforms = {
+            v: {value: 0.3},
+            omega: new THREE.Uniform(new Vector3()),
+            color: new THREE.Uniform(new Vector3(0.5)),
+            center: new THREE.Uniform(new Vector3(1)),
+            c: {value: 1},
+            cameraForward: new THREE.Uniform(new Matrix4())
+        }
+        customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: Doppler.vertexShader.untextured,
+            fragmentShader: Doppler.fragmentShader.untextured
+        }));
+        customObject.position.x = 1;
+        customObject.receiveShadow = true;
+        customObject.castShadow = true;
+        scene.add(customObject);
+    }
     {
         const inFrontOfCamera = new THREE.Object3D();
         inFrontOfCamera.position.z = -5;
@@ -65,19 +108,49 @@ function init() {
         light.target = inFrontOfCamera;
         lightTarget = inFrontOfCamera;
     }
-
-    camera.add(light);
-
-    const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xABEFCD });
+    const groundTexture = textureLoader.load("./red_sandstone.png");
+    groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+    groundTexture.repeat.set(20000, 20000);
+    const groundMaterial = new THREE.MeshPhongMaterial({ map: groundTexture });
     let ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(20000, 20000), groundMaterial);
     ground.position.y = -1;
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
+    {
+        THREE.DefaultLoadingManager.addHandler(/\.tga$/i, new TGALoader());
+        const loader = new FBXLoader();
+        loader.load("./unity/unitychan.fbx", (obj) => {
+            obj.scale.set(0.005, 0.005, 0.005);
+            obj.position.z = -2;
+            obj.traverse(obj => obj.castShadow = true);
+            scene.add(obj as THREE.Object3D);
+        });
+        loader.load("./rock/Rock1a.fbx", (obj) => {
+            obj.scale.set(0.05, 0.05, 0.05);
+            obj.position.y = ground.position.y + 0.3;
+            obj.position.z = 0.7;
+            obj.traverse(obj => obj.castShadow = true);
+            scene.add(obj as THREE.Object3D);
+        });
+    }
+
+    camera.add(light);
 
     {
         const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.1);
         scene.add(ambientLight);
+
+        const sun = new THREE.DirectionalLight(0xFFFFFF, 0.4);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 1024;
+        sun.shadow.mapSize.height = 1024;
+
+        sun.shadow.camera.near = 0.5;
+        sun.shadow.camera.far = 400;
+
+        sun.position.set(0, 100, 0);
+        scene.add(sun);
     }
 
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas") as HTMLCanvasElement });
