@@ -15,8 +15,7 @@ let renderer: THREE.WebGLRenderer;
 let geometry: THREE.Geometry;
 let material: THREE.Material;
 let customObject: THREE.Mesh;
-let currExp = 2;
-let uniformC = { value: 3 * 10 ** currExp };
+let uniformC = { value: 3 * 10 ** 2 };
 let currentDirection = 0;
 let currentSpeed = 0;
 const maxSpeed = 5;
@@ -54,8 +53,13 @@ function createObject(geometry: THREE.Geometry, material: THREE.Material) {
     })
 }
 
-function init() {
+const setSol = (solExponent: number) => {
+    uniformC.value = 3 * 10 ** solExponent;
+    (<HTMLLabelElement>document.getElementById("sol-label")).textContent = `Speed of Light: ${uniformC.value.toPrecision(8)} m/s`;
+}
 
+function init() {
+    setSol((<HTMLInputElement>document.getElementById("sol")).valueAsNumber);
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
     camera.position.z = 1;
     document.getElementById("fov").setAttribute("value", "70");
@@ -393,12 +397,6 @@ requestAnimationFrame(animate);
 const setFov = (newFov: number) => {
     camera.fov = newFov;
     camera.updateProjectionMatrix();
-}
-
-const setSol = (newSol: number) => {
-    currExp = newSol;
-    uniformC.value = 3 * 10 ** newSol;
-    (<HTMLLabelElement>document.getElementById("sol-label")).textContent = `Speed of Light: ${Math.floor(uniformC.value)} m/s`;
 }
 
 const addVel = (v1: Vector3, v2: number) => {
