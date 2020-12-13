@@ -12,8 +12,6 @@ let scene: THREE.Scene;
 const pickingScene: THREE.Scene = new THREE.Scene();
 pickingScene.background = new THREE.Color(0);
 let renderer: THREE.WebGLRenderer;
-let geometry: THREE.Geometry;
-let material: THREE.Material;
 let customObject: THREE.Mesh;
 let uniformC = { value: 3 * 10 ** 2 };
 let currentDirection = 0;
@@ -28,7 +26,6 @@ interface Object {
     animation?: (obj: Object, timeMs: number, elapsedS: number) => any;
 };
 const objects: Object[] = [];
-let cube: THREE.Mesh;
 
 const enum KeysDown {
     FORWARD,
@@ -70,21 +67,43 @@ function init() {
     scene.add(camera);
 
     const textureLoader = new THREE.TextureLoader();
-    const bird = textureLoader.load("./bird.png")
-    geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-    material = new THREE.MeshPhongMaterial({ map: bird });
 
-    cube = new THREE.Mesh(geometry, material);
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    scene.add(cube);
+    {
+        const bird = textureLoader.load("./bird.png");
+        const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
 
-    let cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10), new THREE.MeshPhongMaterial({ color: 0xABCDEF }));
-    cone.castShadow = true;
-    cone.receiveShadow = true;
-    cone.position.z = -1;
-    cone.position.x = -1;
-    scene.add(cone);
+        const cube = new THREE.Mesh(geometry,
+            Doppler.createShader({
+                lightSpeed: uniformC,
+                map: new Uniform(bird)
+            }));
+        cube.castShadow = true;
+        cube.receiveShadow = true;
+        objects.push({
+            object: cube,
+            pickingObject: null,
+            omega: new Vector3(1, 2),
+            v: new Vector3()
+        });
+        scene.add(cube);
+    }
+    {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10), Doppler.createShader({
+            lightSpeed: uniformC,
+            diffuse: new Uniform(new THREE.Color(0xABCDEF))
+        }));
+        cone.castShadow = true;
+        cone.receiveShadow = true;
+        cone.position.z = -1;
+        cone.position.x = -1;
+        objects.push({
+            object: cone,
+            pickingObject: null,
+            omega: new Vector3(),
+            v: new Vector3()
+        });
+        scene.add(cone);
+    }
 
     light = new THREE.SpotLight(0xFFFFFF, 1);
 
@@ -146,7 +165,7 @@ function init() {
         camera.add(inFrontOfCamera);
         light.target = inFrontOfCamera;
         lightTarget = inFrontOfCamera;
-    } //, new THREE.MeshPhongMaterial({ color: 0xABCDEF, bumpMap: bird })
+    }
     const groundTexture = textureLoader.load("./red_sandstone.png");
     groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
     groundTexture.repeat.set(20000, 20000);
@@ -237,8 +256,6 @@ const animate: FrameRequestCallback = (time) => {
     const elapsed = (time - lastTime) / 1000;
     lastTime = time;
     requestAnimationFrame(animate);
-    cube.rotation.x += 1 * elapsed;
-    cube.rotation.y += 2 * elapsed;
     if (keysActive[KeysDown.CCW]) {
         camera.rotation.y += 1 * elapsed;
     }

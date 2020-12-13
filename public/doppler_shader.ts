@@ -12,22 +12,25 @@ interface Uniforms {
 };
 
 const createShader = (baseUniforms: Partial<Uniforms> & { lightSpeed: { value: number } }) => {
+	const uniforms = <Uniforms>UniformsUtils.clone(ShaderLib.phong.uniforms);
 	baseUniforms.velocityRelCamera = baseUniforms.velocityRelCamera || { value: 0 };
 	baseUniforms.omega = baseUniforms.omega || new Uniform(new Vector3());
 	baseUniforms.color = baseUniforms.color || new Uniform(new Color());
 	baseUniforms.center = baseUniforms.center || new Uniform(new Vector3());
-	baseUniforms.cameraForward = baseUniforms.center || new Uniform(new Matrix4());
-	const uniforms = <Uniforms>UniformsUtils.merge(
-		[
-			ShaderLib.phong.uniforms,
-			baseUniforms
-		]);
+	baseUniforms.cameraForward = baseUniforms.cameraForward || new Uniform(new Matrix4());
+	for (const key in baseUniforms) {
+		uniforms[key] = baseUniforms[key];
+	}
 	const material = <ShaderMaterial & { uniforms: Uniforms }>new ShaderMaterial({
 		uniforms: uniforms,
 		fragmentShader: fragmentShader,
 		vertexShader: vertexShader,
 		lights: true,
 	});
+	if (baseUniforms.map) {
+		// @ts-ignore
+		material.map = baseUniforms.map.value;
+	}
 	return material;
 };
 
@@ -98,7 +101,7 @@ void main()
 	// END TAKEN FROM THREE.JS lib
 }
 `
-;
+	;
 
 const fragmentShader = `
 // START TAKEN FROM THREE.JS lib
