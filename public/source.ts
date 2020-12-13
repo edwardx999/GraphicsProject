@@ -189,6 +189,7 @@ function init() {
         // THREE.DefaultLoadingManager.addHandler(/\.tga$/i, new TGALoader());
         const loader = new FBXLoader();
         const material = Doppler.createShader({ lightSpeed: uniformC, diffuse: new Uniform(new THREE.Color(0x123456)) });
+        material.side = THREE.DoubleSide;
         loader.load("./unity/unitychan.fbx", (obj: Object3D) => {
             obj.scale.set(0.01, 0.01, 0.01);
             obj.position.x = -2;
