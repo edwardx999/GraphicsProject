@@ -14,8 +14,11 @@ let geometry: THREE.Geometry;
 let material: THREE.Material;
 let customObject: THREE.Mesh;
 let currExp = 2;
-let uniformC = {value: 3*10**currExp};
-let maxSpeed = 5;
+let uniformC = { value: 3 * 10 ** currExp };
+let currentDirection = 0;
+let currentSpeed = 0;
+const maxSpeed = 5;
+const accelaration = 8;
 interface Object {
     object: THREE.Object3D;
     pickingObject: THREE.Object3D;
@@ -69,7 +72,7 @@ function init() {
     cube.receiveShadow = true;
     scene.add(cube);
 
-    let cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10));
+    let cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10), new THREE.MeshPhongMaterial({ color: 0xABCDEF }));
     cone.castShadow = true;
     cone.receiveShadow = true;
     cone.position.z = -1;
@@ -107,7 +110,7 @@ function init() {
         customObject.receiveShadow = true;
         customObject.castShadow = true;
         // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
-        objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(0, 2, 0)})
+        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(0, 2, 0) })
         scene.add(customObject);
     }
     {
@@ -177,12 +180,19 @@ const directions = (() => {
     }
     return ret;
 })();
+
+const modularAdd = (a: number, b: number, n: number) => {
+    const l = (a + b) % n;
+    if (l < 0) {
+        return l + n;
+    }
+    return l;
+};
 const animate: FrameRequestCallback = (time) => {
     if (lastTime === undefined) {
         lastTime = time;
     }
     const elapsed = (time - lastTime) / 1000;
-    let uniformV: number;
     let uniformForward: Matrix4;
     let uniformForwardInverse: Matrix4;
     lastTime = time;
@@ -197,12 +207,18 @@ const animate: FrameRequestCallback = (time) => {
     }
     {
         const applyMovement = (proportion: number) => {
-            const facing = new THREE.Vector3(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
-            uniformV = maxSpeed;
-            const cameraVelocity = facing.applyQuaternion(directions[proportion]);
-            uniformForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraVelocity, new Vector3(1, 0, 0)));
-            uniformForwardInverse = uniformForward.clone().invert()
-            camera.position.add(cameraVelocity.multiplyScalar(elapsed * maxSpeed));
+            if (currentDirection != proportion &&
+                modularAdd(currentDirection, 1, 8) != proportion &&
+                modularAdd(currentDirection, -1, 8) != proportion) {
+                currentSpeed = 0;
+            }
+            else {
+                currentSpeed += accelaration * elapsed;
+            }
+            currentDirection = proportion;
+            if (currentSpeed > maxSpeed) {
+                currentSpeed = maxSpeed;
+            }
         };
         if (keysActive[KeysDown.FORWARD]) {
             if (keysActive[KeysDown.LEFT]) {
@@ -233,9 +249,19 @@ const animate: FrameRequestCallback = (time) => {
             applyMovement(6);
         }
         else {
-            uniformV = 0;
+            currentSpeed -= accelaration * elapsed;
+        }
+        if (currentSpeed < 0) {
+            currentSpeed = 0;
             uniformForward = new Matrix4();
             uniformForwardInverse = new Matrix4();
+        }
+        else {
+            const facing = new THREE.Vector3(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
+            const cameraVelocity = facing.applyQuaternion(directions[currentDirection]);
+            uniformForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraVelocity, new Vector3(1, 0, 0)));
+            uniformForwardInverse = uniformForward.clone().invert()
+            camera.position.add(cameraVelocity.multiplyScalar(elapsed * currentSpeed));
         }
     }
     objects.forEach((obj) => {
@@ -243,7 +269,7 @@ const animate: FrameRequestCallback = (time) => {
             if (obj.object.material instanceof THREE.ShaderMaterial) {
                 const objUniform = <Doppler.UntexturedUniforms>obj.object.material.uniforms;
                 const objVelRotated = obj.v.clone().applyMatrix4(uniformForward)
-                const cameraV = addVel(objVelRotated, uniformV)
+                const cameraV = addVel(objVelRotated, currentSpeed)
                 objUniform.v.value = cameraV.applyMatrix4(uniformForwardInverse).length();
                 objUniform.cameraForward.value = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)))
                 objUniform.omega.value = obj.omega;
@@ -352,7 +378,7 @@ const setFov = (newFov: number) => {
 
 const setSol = (newSol: number) => {
     currExp = newSol;
-    uniformC.value = 3*10**newSol;
+    uniformC.value = 3 * 10 ** newSol;
     (<HTMLLabelElement>document.getElementById("sol-label")).textContent = `Speed of Light: ${Math.floor(uniformC.value)}`;
 }
 
