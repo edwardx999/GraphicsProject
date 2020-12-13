@@ -131,7 +131,7 @@ function init() {
         customObject.receiveShadow = true;
         customObject.castShadow = true;
         // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
-        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(1, 1, 1) })
+        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(0, 2, 0) })
         scene.add(customObject);
     }
     {
@@ -361,22 +361,16 @@ const animate: FrameRequestCallback = (time) => {
         const setObjUniforms = (objUniform: Doppler.Uniforms) => {
             let velocityRelCamera: number;
             let cameraForward: THREE.Matrix4;
-            let omega: THREE.Vector3;
             if (velocityRelCamera === undefined) {
                 const objVelRotated = obj.v.clone().applyMatrix4(toCameraMovingForward);
                 const cameraV = addVel(objVelRotated, currentSpeed).negate();
                 cameraV.applyMatrix4(fromCameraMovingForward);
                 velocityRelCamera = cameraV.length();
                 cameraForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)));
-                omega = new Vector3();
-                const rot = obj.object.rotation;
-                omega.x = obj.omega.y * Math.sin(rot.x) * Math.sin(rot.z) + obj.omega.x * Math.cos(rot.z);
-                omega.y = obj.omega.y * Math.sin(rot.x) * Math.cos(rot.z) - obj.omega.x * Math.sin(rot.z);
-                omega.y = obj.omega.y * Math.cos(rot.x) + obj.omega.z;
             }
             objUniform.cameraForward.value = cameraForward;
             objUniform.velocityRelCamera.value = velocityRelCamera;
-            objUniform.omega.value = omega;
+            objUniform.omega.value = obj.omega;
             objUniform.center.value = obj.object.position;
         };
         obj.object.traverse(child => {
@@ -391,7 +385,9 @@ const animate: FrameRequestCallback = (time) => {
         obj.object.position.x += obj.v.x * elapsed;
         obj.object.position.y += obj.v.y * elapsed;
         obj.object.position.z += obj.v.z * elapsed;
-        obj.object.rotateOnAxis(obj.omega.clone().normalize(), obj.omega.length() * elapsed);
+        obj.object.rotation.x += obj.omega.x * elapsed;
+        obj.object.rotation.y += obj.omega.y * elapsed;
+        obj.object.rotation.z += obj.omega.z * elapsed;
     })
     {
         lightTarget.position.y = -0.5 + Math.sin(time / 1000) / 10;
