@@ -1,8 +1,10 @@
 import * as THREE from "./lib/Three.js";
 import { FBXLoader } from "./lib/loaders/FBXLoader.js";
 import { TGALoader } from "./lib/loaders/TGALoader.js";
+import { OBJLoader } from "./lib/loaders/OBJLoader.js";
 import * as Doppler from "./doppler_shader.js";
-import { Matrix4, Quaternion, Uniform, Vector3 } from "./lib/Three.js";
+import { Matrix4, Object3D, ObjectLoader, Quaternion, Uniform, Vector3 } from "./lib/Three.js";
+import { MTLLoader } from "./lib/loaders/MTLLoader.js";
 let camera: THREE.PerspectiveCamera;
 let light: THREE.SpotLight;
 let lightTarget: THREE.Object3D;
@@ -127,7 +129,7 @@ function init() {
     ground.receiveShadow = true;
     scene.add(ground);
     {
-        THREE.DefaultLoadingManager.addHandler(/\.tga$/i, new TGALoader());
+        // THREE.DefaultLoadingManager.addHandler(/\.tga$/i, new TGALoader());
         const loader = new FBXLoader();
         loader.load("./unity/unitychan.fbx", (obj) => {
             obj.scale.set(0.005, 0.005, 0.005);
@@ -135,13 +137,19 @@ function init() {
             obj.traverse(obj => obj.castShadow = true);
             scene.add(obj as THREE.Object3D);
         });
-        loader.load("./rock/Rock1a.fbx", (obj) => {
-            obj.scale.set(0.05, 0.05, 0.05);
-            obj.position.y = ground.position.y + 0.3;
-            obj.position.z = 0.7;
-            obj.traverse(obj => obj.castShadow = true);
-            scene.add(obj as THREE.Object3D);
-        });
+        const mtl = new MTLLoader();
+        mtl.load("./jess/Jess_Casual_Walking_001_D.png", (material) => {
+            const objLoader = new OBJLoader();
+            objLoader.setMaterials(material);
+            objLoader.load("./jess/jess.obj", (obj: Object3D) => {
+                obj.scale.set(0.001, 0.001, 0.001);
+                obj.rotation.x = -Math.PI / 2;
+                obj.position.y = ground.position.y;
+                obj.position.z = 0.7;
+                obj.traverse(obj => obj.castShadow = true);
+                scene.add(obj as THREE.Object3D);
+            })
+        })
     }
 
     camera.add(light);
