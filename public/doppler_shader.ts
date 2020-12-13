@@ -21,6 +21,7 @@ uniform float c;
 uniform vec3 center;
 uniform vec3 color;
 uniform mat4 cameraForward;
+uniform vec3 objectV;
 
 varying vec3 vPosition;
 
@@ -28,7 +29,7 @@ void main()
 {
 	vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
 	gl_Position = projectionMatrix * modelViewPosition;
-	vPosition = position;
+	vPosition = (modelMatrix * vec4(position, 1.0)).xyz;
 }
 `
 };
@@ -41,6 +42,8 @@ uniform vec3 omega;
 uniform float v;
 uniform vec3 center;
 uniform vec3 color;
+uniform vec3 objectV;
+uniform mat4 cameraForward;
 varying vec3 vPosition;
 
 const vec3 rgb_wavelengths = vec3(650.0, 540.0, 470.0);
@@ -166,16 +169,17 @@ vec3 doppler(vec3 l, vec3 pos, vec3 vel, float c)
 		return l;
 	}
 	float cos = dot(pos, vel) / length(pos) / v;
-	return l * (1.0 + v / c * cos) / sqrt(1.0 + v * c / (c * c));
+	return l * (1.0 + v / c * cos) / sqrt(1.0 - v * v / (c * c));
 }
 
 void main()
 {
-	// vec3 relPos = vPosition - center;
-	// vec3 u = cross(omega, relPos);
-	// vec3 up = vel_add(u, v, c);
+	vec3 relPos = vPosition - center;
+	vec4 u = cameraForward * vec4(cross(omega, relPos), 0);
+	vec3 up = vel_add(u.xyz, v, c);
+	vec4 rotatedFrame = cameraForward * vec4(vPosition - cameraPosition, 0);
 	
-	vec3 wavelengths = doppler(rgb_wavelengths, vPosition, vec3(v, 0.0, 0.0), c);
+	vec3 wavelengths = doppler(rgb_wavelengths, rotatedFrame.xyz, up, c);
 
 	// gl_FragColor = vec4(wavelength_rgb(rgb_wavelengths[0]), 1.0);
 	// vec3 xyz = mat3(xyz_wavelength(wavelengths[0]), xyz_wavelength(wavelengths[1]), xyz_wavelength(wavelengths[1])) * color;
@@ -187,9 +191,6 @@ void main()
 };
 
 /**
- * rotate all coordinates such that camera is moving forward with velocity (scalar) v
- *   -- must provide rotation matrix for this: uniform mat4 cameraForwardMatrix
- *   -- must provide velocity of camera: uniform float cameraVelocity
  * calculate/provide velocity relative to camera:
  * 	 -- provide object velocity: uniform vec3 velocity
  * varying vec3 positionRelCameraForward = cameraForwardMatrix * position

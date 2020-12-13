@@ -2,7 +2,7 @@ import * as THREE from "./lib/Three.js";
 import { FBXLoader } from "./lib/loaders/FBXLoader.js";
 import { TGALoader } from "./lib/loaders/TGALoader.js";
 import * as Doppler from "./doppler_shader.js";
-import { Matrix4, Vector3 } from "./lib/Three.js";
+import { Matrix4, Quaternion, Uniform, Vector3 } from "./lib/Three.js";
 let camera: THREE.PerspectiveCamera;
 let light: THREE.SpotLight;
 let lightTarget: THREE.Object3D;
@@ -13,14 +13,16 @@ let renderer: THREE.WebGLRenderer;
 let geometry: THREE.Geometry;
 let material: THREE.Material;
 let customObject: THREE.Mesh;
+let currExp = 2;
+let uniformC = {value: 3*10**currExp};
+let maxSpeed = 5;
 interface Object {
-    object: THREE.Mesh;
-    pickingObject: THREE.Mesh;
-    v: number;
-    omega: number;
-
+    object: THREE.Object3D;
+    pickingObject: THREE.Object3D;
+    v: THREE.Vector3;
+    omega: THREE.Vector3;
 };
-const objects: THREE.Mesh[] = [];
+const objects: Object[] = [];
 let cube: THREE.Mesh;
 
 const enum KeysDown {
@@ -36,10 +38,15 @@ const keysActive: Record<KeysDown, boolean> = [false, false, false, false, false
 function createObject(geometry: THREE.Geometry, material: THREE.Material) {
     const realObject = new THREE.Mesh(geometry, material);
     const pickingMaterial = new THREE.MeshPhongMaterial({
-        color: objects.length + 1
+        color: objects.length + 1,
     });
     const pickingObject = new THREE.Mesh(geometry, pickingMaterial);
-
+    objects.push({
+        object: realObject,
+        pickingObject: pickingObject,
+        v: new THREE.Vector3(0, 0, 0),
+        omega: new THREE.Vector3(0, 0, 0)
+    })
 }
 
 function init() {
@@ -62,7 +69,7 @@ function init() {
     cube.receiveShadow = true;
     scene.add(cube);
 
-    let cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10), new THREE.MeshPhongMaterial({ color: 0xABCDEF, bumpMap: bird }));
+    let cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 10));
     cone.castShadow = true;
     cone.receiveShadow = true;
     cone.position.z = -1;
@@ -84,11 +91,11 @@ function init() {
     light.shadow.camera.fov = 30;
     {
         const uniforms: Doppler.UntexturedUniforms = {
-            v: {value: 0.3},
+            v: new THREE.Uniform(0),
             omega: new THREE.Uniform(new Vector3()),
             color: new THREE.Uniform(new Vector3(0.5)),
             center: new THREE.Uniform(new Vector3(1)),
-            c: {value: 1},
+            c: uniformC,
             cameraForward: new THREE.Uniform(new Matrix4())
         }
         customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.ShaderMaterial({
@@ -99,6 +106,8 @@ function init() {
         customObject.position.x = 1;
         customObject.receiveShadow = true;
         customObject.castShadow = true;
+        // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
+        objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(0, 2, 0)})
         scene.add(customObject);
     }
     {
@@ -107,11 +116,11 @@ function init() {
         camera.add(inFrontOfCamera);
         light.target = inFrontOfCamera;
         lightTarget = inFrontOfCamera;
-    }
+    } //, new THREE.MeshPhongMaterial({ color: 0xABCDEF, bumpMap: bird })
     const groundTexture = textureLoader.load("./red_sandstone.png");
     groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
     groundTexture.repeat.set(20000, 20000);
-    const groundMaterial = new THREE.MeshPhongMaterial({ map: groundTexture });
+    const groundMaterial = new THREE.MeshPhongMaterial({ map: groundTexture, bumpMap: groundTexture, bumpScale: 10 });
     let ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(20000, 20000), groundMaterial);
     ground.position.y = -1;
     ground.rotation.x = -Math.PI / 2;
@@ -163,9 +172,8 @@ let lastTime: number;
 const directions = (() => {
     const ret: THREE.Quaternion[] = [];
     const yAxisVector = new THREE.Vector3(0, 1, 0);
-    const scale = new THREE.Quaternion(0, 0, 0, 0.05);
     for (let i = 0; i < 8; ++i) {
-        ret.push(new THREE.Quaternion().setFromAxisAngle(yAxisVector, i * Math.PI / 4).multiply(scale));
+        ret.push(new THREE.Quaternion().setFromAxisAngle(yAxisVector, i * Math.PI / 4));
     }
     return ret;
 })();
@@ -173,21 +181,28 @@ const animate: FrameRequestCallback = (time) => {
     if (lastTime === undefined) {
         lastTime = time;
     }
-    const elapsed = time - lastTime;
+    const elapsed = (time - lastTime) / 1000;
+    let uniformV: number;
+    let uniformForward: Matrix4;
+    let uniformForwardInverse: Matrix4;
     lastTime = time;
     requestAnimationFrame(animate);
-    cube.rotation.x += 0.001 * elapsed;
-    cube.rotation.y += 0.002 * elapsed;
+    cube.rotation.x += 1 * elapsed;
+    cube.rotation.y += 2 * elapsed;
     if (keysActive[KeysDown.CCW]) {
-        camera.rotation.y += 0.001 * elapsed;
+        camera.rotation.y += 1 * elapsed;
     }
     else if (keysActive[KeysDown.CW]) {
-        camera.rotation.y += -0.001 * elapsed;
+        camera.rotation.y += -1 * elapsed;
     }
     {
         const applyMovement = (proportion: number) => {
             const facing = new THREE.Vector3(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
-            camera.position.add(facing.applyQuaternion(directions[proportion]).multiplyScalar(elapsed));
+            uniformV = maxSpeed;
+            const cameraVelocity = facing.applyQuaternion(directions[proportion]);
+            uniformForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraVelocity, new Vector3(1, 0, 0)));
+            uniformForwardInverse = uniformForward.clone().invert()
+            camera.position.add(cameraVelocity.multiplyScalar(elapsed * maxSpeed));
         };
         if (keysActive[KeysDown.FORWARD]) {
             if (keysActive[KeysDown.LEFT]) {
@@ -217,7 +232,28 @@ const animate: FrameRequestCallback = (time) => {
         else if (keysActive[KeysDown.RIGHT]) {
             applyMovement(6);
         }
+        else {
+            uniformV = 0;
+            uniformForward = new Matrix4();
+            uniformForwardInverse = new Matrix4();
+        }
     }
+    objects.forEach((obj) => {
+        if (obj.object instanceof THREE.Mesh) {
+            if (obj.object.material instanceof THREE.ShaderMaterial) {
+                const objUniform = <Doppler.UntexturedUniforms>obj.object.material.uniforms;
+                const objVelRotated = obj.v.clone().applyMatrix4(uniformForward)
+                const cameraV = addVel(objVelRotated, uniformV)
+                objUniform.v.value = cameraV.applyMatrix4(uniformForwardInverse).length();
+                objUniform.cameraForward.value = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)))
+                objUniform.omega.value = obj.omega;
+
+                obj.object.rotation.x += obj.omega.x * elapsed
+                obj.object.rotation.y += obj.omega.y * elapsed
+                obj.object.rotation.z += obj.omega.z * elapsed
+            }
+        }
+    })
     {
         lightTarget.position.y = -0.5 + Math.sin(time / 1000) / 10;
         lightTarget.position.x = Math.sin(time / 823) / 10;
@@ -314,8 +350,30 @@ const setFov = (newFov: number) => {
     camera.updateProjectionMatrix();
 }
 
+const setSol = (newSol: number) => {
+    currExp = newSol;
+    uniformC.value = 3*10**newSol;
+    (<HTMLLabelElement>document.getElementById("sol-label")).textContent = `Speed of Light: ${Math.floor(uniformC.value)}`;
+}
+
+const addVel = (v1: Vector3, v2: number) => {
+    const sum = new Vector3()
+    const c2 = uniformC.value * uniformC.value;
+    const denom = (1.0 - v2 / c2 * v1.x);
+    sum.x = (v1.x - v2) / denom;
+    const gamma = Math.sqrt(1.0 - v2 * v2 / c2);
+    const factor = gamma / denom;
+    sum.y = factor * v1.y;
+    sum.z = factor * v1.z;
+    return sum;
+}
+
 document.getElementById("fov").addEventListener("change", (val) => {
     setFov((val.target as HTMLInputElement).valueAsNumber);
+});
+
+document.getElementById("sol").addEventListener("change", (val) => {
+    setSol((val.target as HTMLInputElement).valueAsNumber);
 });
 
 window.addEventListener("resize", () => {
