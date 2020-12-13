@@ -3,7 +3,7 @@ import { FBXLoader } from "./lib/loaders/FBXLoader.js";
 import { TGALoader } from "./lib/loaders/TGALoader.js";
 import { OBJLoader } from "./lib/loaders/OBJLoader.js";
 import * as Doppler from "./doppler_shader.js";
-import { Matrix4, Mesh, Object3D, ObjectLoader, Quaternion, Uniform, Vector3 } from "./lib/Three.js";
+import { Matrix4, Mesh, MeshPhongMaterial, Object3D, ObjectLoader, Quaternion, Uniform, Vector3 } from "./lib/Three.js";
 import { MTLLoader } from "./lib/loaders/MTLLoader.js";
 let camera: THREE.PerspectiveCamera;
 let light: THREE.SpotLight;
@@ -169,26 +169,51 @@ function init() {
     const groundTexture = textureLoader.load("./red_sandstone.png");
     groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
     groundTexture.repeat.set(20000, 20000);
-    const groundMaterial = new THREE.MeshPhongMaterial({ map: groundTexture, bumpMap: groundTexture, bumpScale: 10 });
-    let ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(20000, 20000), groundMaterial);
+    const groundMaterial = new MeshPhongMaterial({ map: groundTexture, bumpMap: groundTexture, bumpScale: 10 });
+    // repeat mapping not working
+    // const groundMaterial = Doppler.createShader({ lightSpeed: uniformC, map: new Uniform(groundTexture), bumpMap: new Uniform(groundTexture), bumpScale: { value: 10 } });
+    const ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(20000, 20000), groundMaterial);
     ground.position.y = -1;
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
+    objects.push(
+        {
+            object: ground,
+            pickingObject: null,
+            v: new Vector3(),
+            omega: new Vector3()
+        }
+    );
     scene.add(ground);
     {
         // THREE.DefaultLoadingManager.addHandler(/\.tga$/i, new TGALoader());
         const loader = new FBXLoader();
-        loader.load("./unity/unitychan.fbx", (obj) => {
+        const material = Doppler.createShader({ lightSpeed: uniformC, diffuse: new Uniform(new THREE.Color(0x123456)) });
+        loader.load("./unity/unitychan.fbx", (obj: Object3D) => {
             obj.scale.set(0.01, 0.01, 0.01);
             obj.position.x = -2;
             obj.position.y = ground.position.y;
             obj.rotation.y = Math.PI / 2;
-            obj.traverse(obj => obj.castShadow = true);
-            scene.add(obj as THREE.Object3D);
+            obj.traverse(obj => {
+                if (obj instanceof THREE.Mesh) {
+                    obj.castShadow = true;
+                    obj.material = material;
+                }
+            });
+            scene.add(obj);
+            objects.push({
+                object: obj,
+                pickingObject: null,
+                v: new Vector3(),
+                omega: new Vector3(0, 0, 0)
+            });
         });
+    }
+    {
         const objLoader = new OBJLoader();
-        const material = new THREE.MeshPhongMaterial({
-            map: textureLoader.load("./jess/Jess_Casual_Walking_001_D.png"),
+        const material = Doppler.createShader({
+            lightSpeed: uniformC,
+            map: new Uniform(textureLoader.load("./jess/Jess_Casual_Walking_001_D.png")),
             // normalMap: textureLoader.load("./jess/Jess_Casual_Walking_001_N.png"),
         });
         objLoader.load("./jess/jess.obj", (obj: Object3D) => {
@@ -204,7 +229,13 @@ function init() {
                     node.material = material;
                 }
             });
-            scene.add(obj as THREE.Object3D);
+            scene.add(obj);
+            objects.push({
+                object: obj,
+                pickingObject: null,
+                v: new Vector3(),
+                omega: new Vector3(0, 0, 0)
+            });
         })
     }
 
@@ -324,18 +355,26 @@ const animate: FrameRequestCallback = (time) => {
         }
     }
     objects.forEach((obj) => {
-        if (obj.object instanceof THREE.Mesh) {
-            if (obj.object.material instanceof THREE.ShaderMaterial) {
-                const objUniform = <Doppler.Uniforms>obj.object.material.uniforms;
+        const setObjUniforms = (objUniform: Doppler.Uniforms) => {
+            let velocityRelCamera: number;
+            let cameraForward: THREE.Matrix4;
+            if (velocityRelCamera === undefined) {
                 const objVelRotated = obj.v.clone().applyMatrix4(toCameraMovingForward);
                 const cameraV = addVel(objVelRotated, currentSpeed).negate();
                 cameraV.applyMatrix4(fromCameraMovingForward);
-                objUniform.velocityRelCamera.value = cameraV.length();
-                const cameraForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)));
-                objUniform.cameraForward.value = cameraForward;
-                objUniform.omega.value = obj.omega;
+                velocityRelCamera = cameraV.length();
+                cameraForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)));
             }
-        }
+            objUniform.cameraForward.value = cameraForward;
+            objUniform.velocityRelCamera.value = velocityRelCamera;
+            objUniform.omega.value = obj.omega;
+        };
+        obj.object.traverse(child => {
+            if (child instanceof THREE.Mesh && child.material instanceof THREE.ShaderMaterial) {
+                const objUniform = <Doppler.Uniforms>child.material.uniforms;
+                setObjUniforms(objUniform);
+            }
+        });
         if (obj.animation) {
             obj.animation(obj, time, elapsed);
         }

@@ -1,5 +1,5 @@
 
-import { IUniform, Matrix4, Uniform, Vector3, ShaderLib, UniformsUtils, ShaderMaterial, Color } from "./lib/Three.js";
+import { IUniform, Matrix4, Uniform, Vector3, ShaderLib, UniformsUtils, ShaderMaterial, Color, TangentSpaceNormalMap } from "./lib/Three.js";
 export { Uniforms, createShader };
 
 interface Uniforms {
@@ -27,9 +27,13 @@ const createShader = (baseUniforms: Partial<Uniforms> & { lightSpeed: { value: n
 		vertexShader: vertexShader,
 		lights: true,
 	});
-	if (baseUniforms.map) {
-		// @ts-ignore
-		material.map = baseUniforms.map.value;
+	// @ts-ignore
+	material.normalMapType = TangentSpaceNormalMap;
+	for (const key of ["map", "bumpMap", "bumpScale", "normalMap", "normalScale"]) {
+		if (baseUniforms[key]) {
+			// @ts-ignore
+			material[key] = baseUniforms[key].value;
+		}
 	}
 	return material;
 };
