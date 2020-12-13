@@ -2,10 +2,10 @@ import {
 	Loader,
 	LoadingManager,
 	Group
-} from '../../../src/Three';
+} from '../Three.js';
 import {
 	MTLLoader
-} from './MTLLoader';
+} from './MTLLoader.js';
 
 export class OBJLoader extends Loader {
 
