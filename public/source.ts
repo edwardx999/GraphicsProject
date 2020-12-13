@@ -101,19 +101,12 @@ function init() {
     light.shadow.camera.far = 400;
     light.shadow.camera.fov = 30;
     {
-        const uniforms: Doppler.UntexturedUniforms = {
-            v: new THREE.Uniform(0),
-            omega: new THREE.Uniform(new Vector3()),
-            color: new THREE.Uniform(new Vector3(0, 0.5, 0)),
-            center: new THREE.Uniform(new Vector3(1)),
-            c: uniformC,
-            cameraForward: new THREE.Uniform(new Matrix4())
-        }
-        customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.ShaderMaterial({
-            uniforms: uniforms,
-            vertexShader: Doppler.vertexShader.untextured,
-            fragmentShader: Doppler.fragmentShader.untextured
-        }));
+        customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1),
+            Doppler.createShader(
+                {
+                    lightSpeed: uniformC,
+                    diffuse: new THREE.Uniform(new THREE.Color(0x008800))
+                }));
         customObject.position.x = 1;
         customObject.position.z = -1;
         customObject.receiveShadow = true;
@@ -123,19 +116,12 @@ function init() {
         scene.add(customObject);
     }
     {
-        const uniforms: Doppler.UntexturedUniforms = {
-            v: new THREE.Uniform(0),
-            omega: new THREE.Uniform(new Vector3()),
-            color: new THREE.Uniform(new Vector3(0, 0.5, 0)),
-            center: new THREE.Uniform(new Vector3(1)),
-            c: uniformC,
-            cameraForward: new THREE.Uniform(new Matrix4())
-        }
-        customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.ShaderMaterial({
-            uniforms: uniforms,
-            vertexShader: Doppler.vertexShader.untextured,
-            fragmentShader: Doppler.fragmentShader.untextured
-        }));
+        customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1),
+            Doppler.createShader(
+                {
+                    lightSpeed: uniformC,
+                    diffuse: new THREE.Uniform(new THREE.Color(0x008800))
+                }));
         customObject.position.x = 0;
         customObject.position.y = 2;
         customObject.position.z = 1;
@@ -307,7 +293,7 @@ const animate: FrameRequestCallback = (time) => {
         else {
             currentSpeed -= accelaration * elapsed;
         }
-        if (currentSpeed < 0) {
+        if (currentSpeed <= 0) {
             currentSpeed = 0;
             toCameraMovingForward = new Matrix4();
             fromCameraMovingForward = toCameraMovingForward;
@@ -323,11 +309,11 @@ const animate: FrameRequestCallback = (time) => {
     objects.forEach((obj) => {
         if (obj.object instanceof THREE.Mesh) {
             if (obj.object.material instanceof THREE.ShaderMaterial) {
-                const objUniform = <Doppler.UntexturedUniforms>obj.object.material.uniforms;
+                const objUniform = <Doppler.Uniforms>obj.object.material.uniforms;
                 const objVelRotated = obj.v.clone().applyMatrix4(toCameraMovingForward);
                 const cameraV = addVel(objVelRotated, currentSpeed).negate();
                 cameraV.applyMatrix4(fromCameraMovingForward);
-                objUniform.v.value = cameraV.length();
+                objUniform.velocityRelCamera.value = cameraV.length();
                 const cameraForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)));
                 objUniform.cameraForward.value = cameraForward;
                 objUniform.omega.value = obj.omega;
