@@ -20,7 +20,7 @@ let uniformC = { value: 3 * 10 ** currExp };
 let currentDirection = 0;
 let currentSpeed = 0;
 const maxSpeed = 5;
-const accelaration = 8;
+const accelaration = 10;
 interface Object {
     object: THREE.Object3D;
     pickingObject: THREE.Object3D;
@@ -387,7 +387,7 @@ const setFov = (newFov: number) => {
 const setSol = (newSol: number) => {
     currExp = newSol;
     uniformC.value = 3 * 10 ** newSol;
-    (<HTMLLabelElement>document.getElementById("sol-label")).textContent = `Speed of Light: ${Math.floor(uniformC.value)}`;
+    (<HTMLLabelElement>document.getElementById("sol-label")).textContent = `Speed of Light: ${Math.floor(uniformC.value)} m/s`;
 }
 
 const addVel = (v1: Vector3, v2: number) => {
