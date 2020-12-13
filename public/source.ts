@@ -103,7 +103,7 @@ function init() {
         const uniforms: Doppler.UntexturedUniforms = {
             v: new THREE.Uniform(0),
             omega: new THREE.Uniform(new Vector3()),
-            color: new THREE.Uniform(new Vector3(0.5)),
+            color: new THREE.Uniform(new Vector3(0, 0.5, 0)),
             center: new THREE.Uniform(new Vector3(1)),
             c: uniformC,
             cameraForward: new THREE.Uniform(new Matrix4())
