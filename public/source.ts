@@ -25,6 +25,7 @@ interface Object {
     pickingObject: THREE.Object3D;
     v: THREE.Vector3;
     omega: THREE.Vector3;
+    animation?: (obj: Object, timeMs: number, elapsedS: number) => any;
 };
 const objects: Object[] = [];
 let cube: THREE.Mesh;
@@ -118,7 +119,39 @@ function init() {
         customObject.receiveShadow = true;
         customObject.castShadow = true;
         // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
-        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(0, 2, 0) })
+        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(2, 0, 0) })
+        scene.add(customObject);
+    }
+    {
+        const uniforms: Doppler.UntexturedUniforms = {
+            v: new THREE.Uniform(0),
+            omega: new THREE.Uniform(new Vector3()),
+            color: new THREE.Uniform(new Vector3(0, 0.5, 0)),
+            center: new THREE.Uniform(new Vector3(1)),
+            c: uniformC,
+            cameraForward: new THREE.Uniform(new Matrix4())
+        }
+        customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: Doppler.vertexShader.untextured,
+            fragmentShader: Doppler.fragmentShader.untextured
+        }));
+        customObject.position.x = 0;
+        customObject.position.y = 2;
+        customObject.position.z = 1;
+        customObject.receiveShadow = true;
+        customObject.castShadow = true;
+        // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
+        objects.push({
+            object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(),
+            animation: (obj, time) => {
+                const timeS = time / 1000;
+                //obj.object.position.x = Math.sin(timeS);
+                obj.v.x = Math.cos(timeS);
+                //obj.object.position.z = Math.cos(timeS);
+                obj.v.z = -Math.sin(timeS);
+            }
+        });
         scene.add(customObject);
     }
     {
@@ -156,7 +189,7 @@ function init() {
         objLoader.load("./jess/jess.obj", (obj: Object3D) => {
             obj.scale.set(0.001, 0.001, 0.001);
             obj.rotation.x = -Math.PI / 2;
-            obj.rotation.z = 3*Math.PI / 2;
+            obj.rotation.z = 3 * Math.PI / 2;
             obj.position.y = ground.position.y;
             obj.position.x = 2;
             obj.traverse(obj => obj.castShadow = true);
@@ -216,8 +249,6 @@ const animate: FrameRequestCallback = (time) => {
         lastTime = time;
     }
     const elapsed = (time - lastTime) / 1000;
-    let uniformForward: Matrix4;
-    let uniformForwardInverse: Matrix4;
     lastTime = time;
     requestAnimationFrame(animate);
     cube.rotation.x += 1 * elapsed;
@@ -228,6 +259,8 @@ const animate: FrameRequestCallback = (time) => {
     else if (keysActive[KeysDown.CW]) {
         camera.rotation.y += -1 * elapsed;
     }
+    let toCameraMovingForward: Matrix4;
+    let fromCameraMovingForward: Matrix4;
     {
         const applyMovement = (proportion: number) => {
             if (currentDirection != proportion &&
@@ -276,14 +309,14 @@ const animate: FrameRequestCallback = (time) => {
         }
         if (currentSpeed < 0) {
             currentSpeed = 0;
-            uniformForward = new Matrix4();
-            uniformForwardInverse = new Matrix4();
+            toCameraMovingForward = new Matrix4();
+            fromCameraMovingForward = toCameraMovingForward;
         }
         else {
             const facing = new THREE.Vector3(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
             const cameraVelocity = facing.applyQuaternion(directions[currentDirection]);
-            uniformForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraVelocity, new Vector3(1, 0, 0)));
-            uniformForwardInverse = uniformForward.clone().invert()
+            toCameraMovingForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraVelocity, new Vector3(1, 0, 0)));
+            fromCameraMovingForward = toCameraMovingForward.clone().invert();
             camera.position.add(cameraVelocity.multiplyScalar(elapsed * currentSpeed));
         }
     }
@@ -291,17 +324,24 @@ const animate: FrameRequestCallback = (time) => {
         if (obj.object instanceof THREE.Mesh) {
             if (obj.object.material instanceof THREE.ShaderMaterial) {
                 const objUniform = <Doppler.UntexturedUniforms>obj.object.material.uniforms;
-                const objVelRotated = obj.v.clone().applyMatrix4(uniformForward)
-                const cameraV = addVel(objVelRotated, currentSpeed)
-                objUniform.v.value = cameraV.applyMatrix4(uniformForwardInverse).length();
-                objUniform.cameraForward.value = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)))
+                const objVelRotated = obj.v.clone().applyMatrix4(toCameraMovingForward);
+                const cameraV = addVel(objVelRotated, currentSpeed).negate();
+                cameraV.applyMatrix4(fromCameraMovingForward);
+                objUniform.v.value = cameraV.length();
+                const cameraForward = new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(cameraV.clone().normalize(), new Vector3(1, 0, 0)));
+                objUniform.cameraForward.value = cameraForward;
                 objUniform.omega.value = obj.omega;
-
-                obj.object.rotation.x += obj.omega.x * elapsed
-                obj.object.rotation.y += obj.omega.y * elapsed
-                obj.object.rotation.z += obj.omega.z * elapsed
             }
         }
+        if (obj.animation) {
+            obj.animation(obj, time, elapsed);
+        }
+        obj.object.position.x += obj.v.x * elapsed;
+        obj.object.position.y += obj.v.y * elapsed;
+        obj.object.position.z += obj.v.z * elapsed;
+        obj.object.rotation.x += obj.omega.x * elapsed;
+        obj.object.rotation.y += obj.omega.y * elapsed;
+        obj.object.rotation.z += obj.omega.z * elapsed;
     })
     {
         lightTarget.position.y = -0.5 + Math.sin(time / 1000) / 10;
@@ -400,7 +440,7 @@ const setFov = (newFov: number) => {
 }
 
 const addVel = (v1: Vector3, v2: number) => {
-    const sum = new Vector3()
+    const sum = new Vector3();
     const c2 = uniformC.value * uniformC.value;
     const denom = (1.0 - v2 / c2 * v1.x);
     sum.x = (v1.x - v2) / denom;
