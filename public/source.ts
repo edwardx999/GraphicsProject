@@ -3,7 +3,7 @@ import { FBXLoader } from "./lib/loaders/FBXLoader.js";
 import { TGALoader } from "./lib/loaders/TGALoader.js";
 import { OBJLoader } from "./lib/loaders/OBJLoader.js";
 import * as Doppler from "./doppler_shader.js";
-import { Matrix4, Object3D, ObjectLoader, Quaternion, Uniform, Vector3 } from "./lib/Three.js";
+import { Matrix4, Mesh, Object3D, ObjectLoader, Quaternion, Uniform, Vector3 } from "./lib/Three.js";
 import { MTLLoader } from "./lib/loaders/MTLLoader.js";
 let camera: THREE.PerspectiveCamera;
 let light: THREE.SpotLight;
@@ -78,6 +78,7 @@ function init() {
     cone.castShadow = true;
     cone.receiveShadow = true;
     cone.position.z = -1;
+    cone.position.x = -1;
     scene.add(cone);
 
     light = new THREE.SpotLight(0xFFFFFF, 1);
@@ -109,6 +110,7 @@ function init() {
             fragmentShader: Doppler.fragmentShader.untextured
         }));
         customObject.position.x = 1;
+        customObject.position.z = -1;
         customObject.receiveShadow = true;
         customObject.castShadow = true;
         // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
@@ -135,23 +137,32 @@ function init() {
         // THREE.DefaultLoadingManager.addHandler(/\.tga$/i, new TGALoader());
         const loader = new FBXLoader();
         loader.load("./unity/unitychan.fbx", (obj) => {
-            obj.scale.set(0.005, 0.005, 0.005);
-            obj.position.z = -2;
+            obj.scale.set(0.01, 0.01, 0.01);
+            obj.position.x = -2;
+            obj.position.y = ground.position.y;
+            obj.rotation.y = Math.PI / 2;
             obj.traverse(obj => obj.castShadow = true);
             scene.add(obj as THREE.Object3D);
         });
-        const mtl = new MTLLoader();
-        mtl.load("./jess/Jess_Casual_Walking_001_D.png", (material) => {
-            const objLoader = new OBJLoader();
-            objLoader.setMaterials(material);
-            objLoader.load("./jess/jess.obj", (obj: Object3D) => {
-                obj.scale.set(0.001, 0.001, 0.001);
-                obj.rotation.x = -Math.PI / 2;
-                obj.position.y = ground.position.y;
-                obj.position.z = 0.7;
-                obj.traverse(obj => obj.castShadow = true);
-                scene.add(obj as THREE.Object3D);
-            })
+        const objLoader = new OBJLoader();
+        const material = new THREE.MeshPhongMaterial({
+            map: textureLoader.load("./jess/Jess_Casual_Walking_001_D.png"),
+            // normalMap: textureLoader.load("./jess/Jess_Casual_Walking_001_N.png"),
+        });
+        objLoader.load("./jess/jess.obj", (obj: Object3D) => {
+            obj.scale.set(0.001, 0.001, 0.001);
+            obj.rotation.x = -Math.PI / 2;
+            obj.rotation.z = 3*Math.PI / 2;
+            obj.position.y = ground.position.y;
+            obj.position.x = 2;
+            obj.traverse(obj => obj.castShadow = true);
+            // For any meshes in the model, add our material.
+            obj.traverse((node: Mesh) => {
+                if (node.isMesh) {
+                    node.material = material;
+                }
+            });
+            scene.add(obj as THREE.Object3D);
         })
     }
 
