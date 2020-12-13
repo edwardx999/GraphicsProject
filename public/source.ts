@@ -131,7 +131,7 @@ function init() {
         customObject.receiveShadow = true;
         customObject.castShadow = true;
         // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
-        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(2, 0, 0) })
+        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(0, 2, 0) })
         scene.add(customObject);
     }
     {
@@ -192,11 +192,12 @@ function init() {
         loader.load("./unity/unitychan.fbx", (obj: Object3D) => {
             obj.scale.set(0.01, 0.01, 0.01);
             obj.position.x = -2;
-            obj.position.y = ground.position.y;
+            obj.position.y = ground.position.y + 0.1;
             obj.rotation.y = Math.PI / 2;
             obj.traverse(obj => {
+                obj.castShadow = true;
+                obj.receiveShadow = true;
                 if (obj instanceof THREE.Mesh) {
-                    obj.castShadow = true;
                     obj.material = material;
                 }
             });
@@ -205,7 +206,7 @@ function init() {
                 object: obj,
                 pickingObject: null,
                 v: new Vector3(),
-                omega: new Vector3(0, 0, 0)
+                omega: new Vector3(0, 2, 0)
             });
         });
     }
@@ -222,12 +223,13 @@ function init() {
             obj.rotation.z = 3 * Math.PI / 2;
             obj.position.y = ground.position.y;
             obj.position.x = 2;
-            obj.traverse(obj => obj.castShadow = true);
             // For any meshes in the model, add our material.
-            obj.traverse((node: Mesh) => {
-                if (node.isMesh) {
+            obj.traverse((node: Object3D) => {
+                if (node instanceof THREE.Mesh) {
                     node.material = material;
                 }
+                obj.castShadow = true;
+                obj.receiveShadow = true;
             });
             scene.add(obj);
             objects.push({
@@ -368,6 +370,7 @@ const animate: FrameRequestCallback = (time) => {
             objUniform.cameraForward.value = cameraForward;
             objUniform.velocityRelCamera.value = velocityRelCamera;
             objUniform.omega.value = obj.omega;
+            objUniform.center.value = obj.object.position;
         };
         obj.object.traverse(child => {
             if (child instanceof THREE.Mesh && child.material instanceof THREE.ShaderMaterial) {
