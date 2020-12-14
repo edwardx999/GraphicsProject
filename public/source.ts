@@ -238,6 +238,7 @@ function init() {
             map: new Uniform(textureLoader.load("./jess/Jess_Casual_Walking_001_D.png")),
             // normalMap: textureLoader.load("./jess/Jess_Casual_Walking_001_N.png"),
         });
+        material.skinning = true;
         objLoader.load("./jess/jess.obj", (obj: Object3D) => {
             obj.scale.set(0.001, 0.001, 0.001);
             obj.rotation.x = -Math.PI / 2;
@@ -249,8 +250,8 @@ function init() {
                 if (node instanceof THREE.Mesh) {
                     node.material = material;
                 }
-                obj.castShadow = true;
-                obj.receiveShadow = true;
+                node.castShadow = true;
+                node.receiveShadow = true;
             });
             scene.add(obj);
             objects.push({
@@ -407,8 +408,7 @@ const animate: FrameRequestCallback = (time) => {
         obj.object.position.z += obj.v.z * elapsed;
         {
             const len = obj.omega.length();
-            if(len > 0.001)
-            {
+            if (len > 0.001) {
                 obj.object.rotateOnAxis(obj.omega.clone().normalize(), len * elapsed);
             }
         }
