@@ -150,19 +150,10 @@ uniform vec3 center;
 uniform mat4 cameraForward;
 varying vec3 vWorldPosition;
 
+// wavelength in nm of red, green, blue
 const vec3 rgb_wavelengths = vec3(650.0, 540.0, 470.0);
 
-const mat3 xyz_rgb = mat3(
-	vec2(0.41847, -0.091169), 0.0009290,
-	vec2(-0.15866, 0.25243), 0.015708,
-	vec2(-0.082835, 0.015708), 0.017869);
-
-float gaussian(float x, float alpha, float mu, float sigma1, float sigma2)
-{
-	float squareRoot = (x - mu) / (x < mu ? sigma1 : sigma2);
-	return alpha * exp(-(squareRoot * squareRoot) / 2.0);
-}
-
+// wavelength to rgb value, adapted from https://stackoverflow.com/a/14917481
 vec3 wavelength_rgb(float wavelength) {
     float factor;
     float red, green, blue;
@@ -237,6 +228,7 @@ vec3 wavelength_rgb(float wavelength) {
     return rgb;
 }
 
+// velocity addition formula
 vec3 vel_add(vec3 u, float v, float c)
 {
 	vec3 up;
@@ -250,6 +242,7 @@ vec3 vel_add(vec3 u, float v, float c)
 	return up;
 }
 
+// relativistic doppler effect, given 3 wavelengths, returns those there wavelengths doppler shifted 
 vec3 doppler(vec3 l, vec3 pos, vec3 vel, float c)
 {
 	float v = length(vel);
@@ -314,13 +307,3 @@ void main()
 	gl_FragColor = vec4(rgb, gl_FragColor.a);
 }
 `;
-
-/**
- * calculate/provide velocity relative to camera:
- * 	 -- provide object velocity: uniform vec3 velocity
- * varying vec3 positionRelCameraForward = cameraForwardMatrix * position
- * calculate doppler shift from this velocity and position relative to camera
- */
-// 
-//   
-// calculate vo = velocity of object relative to camera such that only x-component is non-zero
