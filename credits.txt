@@ -1,0 +1,4 @@
+unity-chan: https://assetstore.unity.com/packages/3d/characters/unity-chan-model-18705
+jess: https://www.cgtrader.com/free-3d-models/character/woman/woman-jess-casual-walking-001
+red_sandstone: https://www.minecrafttexturepacks.com/soartex-fanver/
+bird: harikamo
