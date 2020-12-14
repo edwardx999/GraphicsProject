@@ -131,7 +131,7 @@ function init() {
         customObject.receiveShadow = true;
         customObject.castShadow = true;
         // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
-        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(0, 2, 0) })
+        objects.push({ object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(1, 2, 0) })
         scene.add(customObject);
     }
     {
@@ -385,9 +385,10 @@ const animate: FrameRequestCallback = (time) => {
         obj.object.position.x += obj.v.x * elapsed;
         obj.object.position.y += obj.v.y * elapsed;
         obj.object.position.z += obj.v.z * elapsed;
-        obj.object.rotation.x += obj.omega.x * elapsed;
-        obj.object.rotation.y += obj.omega.y * elapsed;
-        obj.object.rotation.z += obj.omega.z * elapsed;
+        obj.object.rotateOnAxis(obj.omega.clone().normalize(), obj.omega.length() * elapsed);
+        //obj.object.rotation.x += obj.omega.x * elapsed;
+        //obj.object.rotation.y += obj.omega.y * elapsed;
+        //obj.object.rotation.z += obj.omega.z * elapsed;
     })
     {
         lightTarget.position.y = -0.5 + Math.sin(time / 1000) / 10;
