@@ -119,6 +119,26 @@ function init() {
     light.shadow.camera.near = 0.5;
     light.shadow.camera.far = 400;
     light.shadow.camera.fov = 30;
+
+    const groundTexture = textureLoader.load("./red_sandstone.png");
+    groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+    groundTexture.repeat.set(20000, 20000);
+    const groundMaterial = new MeshPhongMaterial({ map: groundTexture, bumpMap: groundTexture, bumpScale: 10 });
+    // repeat mapping not working
+    // const groundMaterial = Doppler.createShader({ lightSpeed: uniformC, map: new Uniform(groundTexture), bumpMap: new Uniform(groundTexture), bumpScale: { value: 10 } });
+    const ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(20000, 20000), groundMaterial);
+    ground.position.y = -1;
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    objects.push(
+        {
+            object: ground,
+            pickingObject: null,
+            v: new Vector3(),
+            omega: new Vector3()
+        }
+    );
+    scene.add(ground);
     {
         customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1),
             Doppler.createShader(
@@ -160,31 +180,31 @@ function init() {
         scene.add(customObject);
     }
     {
+        customObject = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1),
+            Doppler.createShader(
+                {
+                    lightSpeed: uniformC,
+                    diffuse: new THREE.Uniform(new THREE.Color(0x880000)),
+                    bumpMap: new THREE.Uniform(groundTexture)
+                }));
+        customObject.position.x = -1;
+        customObject.position.y = 0.5;
+        customObject.position.z = 1;
+        customObject.receiveShadow = true;
+        customObject.castShadow = true;
+        // objects.push({object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3()})
+        objects.push({
+            object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(),
+        });
+        scene.add(customObject);
+    }
+    {
         const inFrontOfCamera = new THREE.Object3D();
         inFrontOfCamera.position.z = -5;
         camera.add(inFrontOfCamera);
         light.target = inFrontOfCamera;
         lightTarget = inFrontOfCamera;
     }
-    const groundTexture = textureLoader.load("./red_sandstone.png");
-    groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-    groundTexture.repeat.set(20000, 20000);
-    const groundMaterial = new MeshPhongMaterial({ map: groundTexture, bumpMap: groundTexture, bumpScale: 10 });
-    // repeat mapping not working
-    // const groundMaterial = Doppler.createShader({ lightSpeed: uniformC, map: new Uniform(groundTexture), bumpMap: new Uniform(groundTexture), bumpScale: { value: 10 } });
-    const ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(20000, 20000), groundMaterial);
-    ground.position.y = -1;
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    objects.push(
-        {
-            object: ground,
-            pickingObject: null,
-            v: new Vector3(),
-            omega: new Vector3()
-        }
-    );
-    scene.add(ground);
     {
         // THREE.DefaultLoadingManager.addHandler(/\.tga$/i, new TGALoader());
         const loader = new FBXLoader();
@@ -385,7 +405,13 @@ const animate: FrameRequestCallback = (time) => {
         obj.object.position.x += obj.v.x * elapsed;
         obj.object.position.y += obj.v.y * elapsed;
         obj.object.position.z += obj.v.z * elapsed;
-        obj.object.rotateOnAxis(obj.omega.clone().normalize(), obj.omega.length() * elapsed);
+        {
+            const len = obj.omega.length();
+            if(len > 0.001)
+            {
+                obj.object.rotateOnAxis(obj.omega.clone().normalize(), len * elapsed);
+            }
+        }
         //obj.object.rotation.x += obj.omega.x * elapsed;
         //obj.object.rotation.y += obj.omega.y * elapsed;
         //obj.object.rotation.z += obj.omega.z * elapsed;
