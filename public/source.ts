@@ -151,9 +151,9 @@ function init() {
             object: customObject, pickingObject: null, v: new Vector3(), omega: new Vector3(),
             animation: (obj, time) => {
                 const timeS = time / 1000;
-                //obj.object.position.x = Math.sin(timeS);
+                obj.object.position.x = Math.sin(timeS);
                 obj.v.x = Math.cos(timeS);
-                //obj.object.position.z = Math.cos(timeS);
+                obj.object.position.z = Math.cos(timeS);
                 obj.v.z = -Math.sin(timeS);
             }
         });
