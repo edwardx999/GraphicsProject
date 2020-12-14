@@ -210,6 +210,7 @@ function init() {
         const loader = new FBXLoader();
         const material = Doppler.createShader({ lightSpeed: uniformC, diffuse: new Uniform(new THREE.Color(0x123456)) });
         material.side = THREE.DoubleSide;
+        material.skinning = true;
         loader.load("./unity/unitychan.fbx", (obj: Object3D) => {
             obj.scale.set(0.01, 0.01, 0.01);
             obj.position.x = -2;
