@@ -276,7 +276,7 @@ function init() {
         sun.shadow.camera.near = 0.5;
         sun.shadow.camera.far = 400;
 
-        sun.position.set(0, 100, 0);
+        sun.position.set(0, 50, 50);
         scene.add(sun);
     }
 
